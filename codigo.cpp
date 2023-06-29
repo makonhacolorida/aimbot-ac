@@ -3,17 +3,9 @@
 #include "dllmain.h"
 #include <cmath>
 
-// functions
-/*
-
-	PIT -> Y
-	YAW -> X
-
-*/
-
 HMODULE hmBase = GetModuleHandle(TEXT("ac_client.exe"));
 
-// Jogador --
+
 class bPlayern
 {
 public:
@@ -26,8 +18,8 @@ public:
 	float pitch; //0x0038
 	char pad_003C[176]; //0x003C
 	int Vida; //0x00EC
-	char pad_00F0[848]; //0x00F0
-}; //Size: 0x0440
+	char pad_00ED[3936]; //0x00ED
+}; //Size: 0x104D
 DWORD pbase = DWORD(hmBase) + 0x17E0A8;
 bPlayern* player = (bPlayern*)*(DWORD*)pbase;
 
@@ -40,23 +32,12 @@ float euclidean_distance(float x, float y) {
 
 void sub_main()
 {
-	AllocConsole();
-	HWND hWnd = GetConsoleWindow();
-	freopen("CONOUT$", "w", stdout);
-	SetConsoleTitle(L"test");
-
-	int id = 2;
 	while (true)
 	{
-
 		if (GetKeyState(VK_RBUTTON) & 0x8000)
 		{
-			// aimbot
-			float closest_player = -1.0f;
-			float closest_yaw = 0.0f;
-			float closest_pitch = 0.0f;
+			float enemyprox = -1.0f;
 
-			//
 			DWORD* max_players = (DWORD*)(DWORD(hmBase) + 0x18AC0C);
 			for (int i = 0; i < *max_players; i++)
 			{
@@ -64,37 +45,33 @@ void sub_main()
 				DWORD* enemy_list = (DWORD*)(DWORD(hmBase) + 0x18AC04);
 				DWORD* enemy_offset = (DWORD*)(*enemy_list + (i * 4));
 				bPlayern* enemy = (bPlayern*)(*enemy_offset);
+
 				if (player != NULL && enemy != NULL && enemy->Vida > 0)
 				{
-					float abspos_x = enemy->x - player->x;
-					float abspos_y = enemy->y - player->y;
-					float abspos_z = enemy->z - player->z;
+					float ax = enemy->x - player->x;
+					float ay = enemy->y - player->y;
+					float az = enemy->z - player->z;
 
-					float temp_distance = euclidean_distance(abspos_x, abspos_y);
-					if (closest_player == -1.0f || temp_distance < closest_player) {
-						closest_player = temp_distance;
+					float temp_distance = euclidean_distance(ax, ay);
+					if (enemyprox == -1.0f || temp_distance < enemyprox)
+					{
+						enemyprox = temp_distance;
+						
+						// Camera X
+						float yx = atan2f(ay, ax);
+						float cameraX = (float)(yx * (180.0 / M_PI))+90;
+						player->yaw = cameraX;
 
-						float azimuth_xy = atan2f(abspos_y, abspos_x);
-						float yaw = (float)(azimuth_xy * (180.0 / M_PI));
-
-						closest_yaw = yaw + 90;
-
-						if (abspos_y < 0) {
-							abspos_y *= -1;
+						// Camera Y
+						if (ay < 0) ay *= -1;
+						if (ay < 5) {
+							if (ax < 0) ax *= -1;
+							ay = ax;
 						}
-						if (abspos_y < 5) {
-							if (abspos_x < 0) {
-								abspos_x *= -1;
-							}
-							abspos_y = abspos_x;
-						}
-						float azimuth_z = atan2f(abspos_z, abspos_y);
-
-						closest_pitch = (float)(azimuth_z * (180.0 / M_PI));
+						float zy = atan2f(az, ay);
+						player->pitch = (float)(zy * (180.0 / M_PI));
 					}
 				}
-				player->yaw = closest_yaw;
-				player->pitch = closest_pitch;
 			}
 
 		}
